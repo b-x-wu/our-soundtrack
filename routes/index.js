@@ -1,84 +1,71 @@
 var express = require('express');
 var router = express.Router();
-var https = require('https');
-
+var got = require('got');
+require('dotenv').config();
 var fs = require('fs');
-var [parseINIString, serialize] = require("../utils/string_parsing"); 
+var serialize = require("../utils/string_parsing"); 
 
 router.get('/', (req, res, next) => {
-
-  fs.readFile('config.ini', 'utf-8', (err, data) => {
-
-    if (err) {
-      console.error(err);
-      res.render('index', { title: 'Express', content: 'err' });
-      return;
-    }
-
-    var config = parseINIString(data);
-    config['query'] = req.query
-
-    res.render('index', { title: 'Express', content: JSON.stringify(config) });
-
-  });
-
+  res.render('index', { title: 'Express', content: process.env.CLIENT_ID });
 });
 
 router.get('/auth', (req, res) => {
+  // redirects user to spotify login page
 
-  fs.readFile('config.ini', 'utf-8', (err, data) => {
-    if (err) {
-      console.error(err);
-      res.render('index', { title: 'Express', content: 'err' });
-      return;
-    }
-
-    var config = parseINIString(data);
-
-    const params = {
-      client_id: config['CLIENT_ID'],
-      response_type: 'code',
-      redirect_uri: 'http://localhost:3000'
-    }
-
-    const authURL = 'https://accounts.spotify.com/en/authorize' + '?' + serialize(params)
-
-    res.redirect(authURL)
-
-  });
-
-  // bunch of nonsense I didn't need
-
-  /*
-  const options = {
-    method: "GET"
-    // path: serialize(params)
-    // headers: {
-    //   'Access-Control-Allow-Origin': '*'
-    // }
+  const params = {
+    client_id: process.env.CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: 'http://localhost:3000/get_tokens'
   }
 
-  const request = https.request(authURL, options, (response) => {
-    console.log(`STATUS: ${response.statusCode}`);
-    console.log(`HEADERS: ${JSON.stringify(response.headers)}`);
-    response.setEncoding('utf8');
-    response.on('data', (chunk) => {
-      console.log(`BODY: ${chunk}`);
-      res.render('index', { title: 'Express', content: chunk });
-    });
-    response.on('end', () => {
-      console.log('No more data in response.');
-    });
-  });
-
-  request.on('error', (e) => {
-    console.error(`problem with request: ${e.message}`);
-  });
-
-  request.end();
+  const authURL = 'https://accounts.spotify.com/en/authorize' + '?' + serialize(params)
 
   res.redirect(authURL)
-  */
+
+});
+
+router.get('/get_tokens', (req, res) => {
+  // requests access tokens
+  // TODO: what happens if the user denies access?
+
+  if (req.query.hasOwnProperty('code')) {
+
+    const body = {
+      grant_type: 'authorization_code',
+      code: req.query['code'],
+      redirect_uri: 'http://localhost:3000/get_tokens',
+      client_id: process.env.CLIENT_ID,
+      client_secret: process.env.CLIENT_SECRET
+    };
+    console.log(serialize(body));
+
+    (async () => {
+
+      try {
+
+        const response = await got('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          body: serialize(body),
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        });
+
+        console.log(response.body);
+        res.render('index', { title: 'Express', content: response.body });
+
+      } catch (e) {
+
+        console.log(e.response.body);
+        res.render('index', { title: 'Express', content: "oops all errors" });
+
+      }
+
+    })();
+
+  } else if (req.query.hasOwnProperty('access_token')) {
+
+  }
 
 });
 
