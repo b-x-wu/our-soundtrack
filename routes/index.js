@@ -3,7 +3,7 @@ var router = express.Router();
 var got = require('got');
 require('dotenv').config();
 var fs = require('fs');
-var serialize = require("../utils/string_parsing"); 
+var [serialize, add_query_params] = require("../utils/string_parsing"); 
 
 router.get('/', (req, res, next) => {
   res.render('index', { title: 'Express', content: process.env.CLIENT_ID });
@@ -15,16 +15,17 @@ router.get('/auth', (req, res) => {
   const params = {
     client_id: process.env.CLIENT_ID,
     response_type: 'code',
-    redirect_uri: 'http://localhost:3000/get_tokens'
+    redirect_uri: 'http://localhost:3000/get_tokens',
+    scope: 'user-top-read'
   }
 
-  const authURL = 'https://accounts.spotify.com/en/authorize' + '?' + serialize(params)
+  const authURL = add_query_params('https://accounts.spotify.com/en/authorize', params);
 
   res.redirect(authURL)
 
 });
 
-router.get('/get_tokens', (req, res) => {
+router.get('/get_tokens', (req, res, next) => {
   // requests access tokens
   // TODO: what happens if the user denies access?
 
@@ -37,7 +38,6 @@ router.get('/get_tokens', (req, res) => {
       client_id: process.env.CLIENT_ID,
       client_secret: process.env.CLIENT_SECRET
     };
-    console.log(serialize(body));
 
     (async () => {
 
@@ -51,8 +51,14 @@ router.get('/get_tokens', (req, res) => {
           }
         });
 
-        console.log(response.body);
-        res.render('index', { title: 'Express', content: response.body });
+        // res.render('index', { title: 'Express', content: response.body });
+        // next('route');
+
+        const responseBody = JSON.parse(response.body);
+
+        res.cookie('access_token', responseBody['access_token'], { httpOnly: true });
+        res.cookie('refresh_token', responseBody['refresh_token'], { httpOnly: true });
+        res.redirect('/top_tracks');
 
       } catch (e) {
 
@@ -68,5 +74,46 @@ router.get('/get_tokens', (req, res) => {
   }
 
 });
+
+router.get('/top_tracks', (req, res) => {
+
+  const content = req.cookies;
+  res.clearCookie('access_token', { httpOnly: true });
+  res.clearCookie('refresh_token', { httpOnly: true });
+  console.log(JSON.stringify(content));
+
+  // res.render('index', { title: 'Express', content: JSON.stringify(content) });
+
+  const body = {
+      time_range: 'long_term',
+      limit: 50,
+  };
+
+  (async () => {
+
+    try {
+
+      const trackURL = add_query_params('https://api.spotify.com/v1/me/top/tracks', body);
+      const response = await got(trackURL, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer ' + content['access_token']
+        }
+      });
+
+      const responseBody = JSON.parse(response.body);
+      res.render('index', { title: 'Express', content: JSON.stringify(responseBody, null, '\t') });
+
+    } catch (e) {
+
+      console.log(e.response);
+      res.render('index', { title: 'Express', content: "oops all errors" });
+
+    }
+
+  })();
+
+})
 
 module.exports = router;

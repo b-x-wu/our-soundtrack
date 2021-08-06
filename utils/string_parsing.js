@@ -7,4 +7,8 @@ function serialize(obj) {
   return str.join("&");
 }
 
-module.exports = serialize
+function add_query_params(url, obj) {
+    return url + "?" + serialize(obj);
+}
+
+module.exports = [serialize, add_query_params]
