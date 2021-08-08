@@ -1,9 +1,9 @@
-var express = require('express');
-var router = express.Router();
-var got = require('got');
+const express = require('express');
+const router = express.Router();
+const got = require('got');
 require('dotenv').config();
-var fs = require('fs');
-var [serialize, add_query_params] = require("../utils/string_parsing"); 
+const fs = require('fs');
+const [serialize, add_query_params] = require("../utils/string_parsing"); 
 
 router.get('/', (req, res, next) => {
   res.render('index', { title: 'Express', content: process.env.CLIENT_ID });
@@ -58,7 +58,7 @@ router.get('/get_tokens', (req, res, next) => {
 
         res.cookie('access_token', responseBody['access_token'], { httpOnly: true });
         res.cookie('refresh_token', responseBody['refresh_token'], { httpOnly: true });
-        res.redirect('/top_tracks');
+        res.redirect('/add_host');
 
       } catch (e) {
 
@@ -75,45 +75,67 @@ router.get('/get_tokens', (req, res, next) => {
 
 });
 
-router.get('/top_tracks', (req, res) => {
+router.get('/add_host', (req, res) => {
 
   const content = req.cookies;
   res.clearCookie('access_token', { httpOnly: true });
   res.clearCookie('refresh_token', { httpOnly: true });
-  console.log(JSON.stringify(content));
-
-  // res.render('index', { title: 'Express', content: JSON.stringify(content) });
 
   const body = {
       time_range: 'long_term',
       limit: 50,
   };
+  console.log('not connected to mongodb yet');
 
-  (async () => {
+  (async (client) => {
 
     try {
 
-      const trackURL = add_query_params('https://api.spotify.com/v1/me/top/tracks', body);
-      const response = await got(trackURL, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': 'Bearer ' + content['access_token']
+      await client.connect();
+      const collection = client.db("our-soundtrack").collection("groups");
+      console.log('connected to collection');
+
+      const responseBody = await (async () => {
+
+        try {
+
+          // const trackURL = add_query_params('https://api.spotify.com/v1/me');
+          const response = await got('https://api.spotify.com/v1/me', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': 'Bearer ' + content['access_token']
+            }
+          });
+          console.log('got response');
+
+          return JSON.parse(response.body);
+
+        } catch (e) {
+
+          console.log(e);
+          res.render('index', { title: 'Express', content: "oops all errors" });
+          return;
+
         }
-      });
 
-      const responseBody = JSON.parse(response.body);
-      res.render('index', { title: 'Express', content: JSON.stringify(responseBody, null, '\t') });
+      })();
 
-    } catch (e) {
+      console.log(JSON.stringify({host: responseBody}));
+      await collection.insertOne({host: responseBody});
+      console.log('posted collection');
+      res.render('index', { title: 'Express', content: "all good, check mongodb" });
 
-      console.log(e.response);
-      res.render('index', { title: 'Express', content: "oops all errors" });
-
+    } finally{
+      await client.close();
     }
 
-  })();
+  })(req.mongoClient);
 
+})
+
+router.get('/refresh', (req, res) => {
+  // TODO: refresh authentication token
 })
 
 module.exports = router;
