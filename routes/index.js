@@ -3,7 +3,7 @@ const router = express.Router();
 const got = require('got');
 require('dotenv').config();
 const fs = require('fs');
-const [serialize, add_query_params] = require("../utils/string_parsing"); 
+const [serialize, addQueryParams, getFields] = require("../utils/string_parsing"); 
 
 router.get('/', (req, res, next) => {
   res.render('index', { title: 'Express', content: process.env.CLIENT_ID });
@@ -19,7 +19,7 @@ router.get('/auth', (req, res) => {
     scope: 'user-top-read'
   }
 
-  const authURL = add_query_params('https://accounts.spotify.com/en/authorize', params);
+  const authURL = addQueryParams('https://accounts.spotify.com/en/authorize', params);
 
   res.redirect(authURL)
 
@@ -81,11 +81,10 @@ router.get('/add_host', (req, res) => {
   res.clearCookie('access_token', { httpOnly: true });
   res.clearCookie('refresh_token', { httpOnly: true });
 
-  const body = {
+  const topTrackQuery = {
       time_range: 'long_term',
       limit: 50,
   };
-  console.log('not connected to mongodb yet');
 
   (async (client) => {
 
@@ -93,23 +92,29 @@ router.get('/add_host', (req, res) => {
 
       await client.connect();
       const collection = client.db("our-soundtrack").collection("groups");
-      console.log('connected to collection');
 
-      const responseBody = await (async () => {
+      const hostInfo = await (async () => {
 
         try {
 
-          // const trackURL = add_query_params('https://api.spotify.com/v1/me');
-          const response = await got('https://api.spotify.com/v1/me', {
-            method: 'GET',
+          const userInfo = await got('https://api.spotify.com/v1/me', {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
               'Authorization': 'Bearer ' + content['access_token']
             }
           });
-          console.log('got response');
 
-          return JSON.parse(response.body);
+          const topTracks = await got(addQueryParams("https://api.spotify.com/v1/me/top/tracks", topTrackQuery), {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': 'Bearer ' + content['access_token']
+            }
+          });
+
+          return {host: {
+            userInfo: getFields(JSON.parse(userInfo.body), ['id', 'uri', 'display_name']), 
+            topTracks: JSON.parse(topTracks.body)['items'].map(x => x['uri'])
+          }};
 
         } catch (e) {
 
@@ -121,15 +126,14 @@ router.get('/add_host', (req, res) => {
 
       })();
 
-      console.log(JSON.stringify({host: responseBody}));
-      await collection.insertOne({host: responseBody});
-      console.log('posted collection');
+      console.log(hostInfo);
+      await collection.insertOne(hostInfo);
       res.render('index', { title: 'Express', content: "all good, check mongodb" });
 
     } finally{
       await client.close();
     }
-
+  
   })(req.mongoClient);
 
 })

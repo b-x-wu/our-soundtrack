@@ -7,8 +7,16 @@ function serialize(obj) {
   return str.join("&");
 }
 
-function add_query_params(url, obj) {
+function addQueryParams(url, obj) {
     return url + "?" + serialize(obj);
 }
 
-module.exports = [serialize, add_query_params]
+function getFields(obj, arr) {
+    var o = {}
+    for (let s of arr) {
+        o[s] = obj[s];
+    }
+    return o;
+}
+
+module.exports = [serialize, addQueryParams, getFields];
