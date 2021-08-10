@@ -82,11 +82,7 @@ router.get('/add_member', (req, res) => {
         }
 
       })();
-
-      console.log(memberInfo);
-      // console.log(content['groupId']);
-      // const cursor = await collection.find({_id: content['groupId']});
-      // console.log(await cursor.next());
+      
       await collection.updateOne({_id: content['groupId']}, [
           { $addFields: 
             {
@@ -98,13 +94,37 @@ router.get('/add_member', (req, res) => {
         ]
       );
 
+      const cursor = await collection.find({_id: content['groupId']});
+      const allSongsObj = await cursor.next();
+      var allSongs = allSongsObj['all_songs'];
+
+      for (let song of memberInfo['topTracks']) {
+        let pos = 49 - memberInfo['topTracks'].indexOf(song)
+        if (Object.keys(allSongs).includes(song)) {
+          let originalScore = allSongs[song];
+          let n = (originalScore - (originalScore % 50)) / 50 + 2;
+          allSongs[song] = 50 * (n - 1) + ((originalScore % 50) * (n - 1) + pos) / n; 
+        } else {
+          allSongs[song] = pos;
+        }
+      }
+
+      // console.log(allSongs);
+
+      await collection.updateOne(
+        {_id: content['groupId']}, 
+        {
+          $set: {all_songs: allSongs}
+        }
+      );
+
     } catch(e) {
 
       console.log(e);
       res.render('index', { title: 'Express', content: "oops all errors" });
 
     } finally{
-      await client.close(); // TODO: after one go the client closes and doesn't reopen
+      // await client.close(); // TODO: after one go the client closes and doesn't reopen
       res.render('index', { title: 'Express', content: "all good, check mongodb" });
     }
   

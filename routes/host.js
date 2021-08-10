@@ -118,7 +118,7 @@ router.get('/add_host', (req, res) => {
             all_songs: topTrackItems.reduce((obj, x) => {
               obj[x['uri']] = 49 - topTrackItems.indexOf(x);
               return obj;
-            }, {}),
+            }, {}), // allSongs?
             _id: ID
           };
 
@@ -141,8 +141,8 @@ router.get('/add_host', (req, res) => {
       console.log(e);
       res.render('index', { title: 'Express', content: "oops all errors" });
     } finally{
-      await client.close();
-      res.render('index', { title: 'Express', content: "https://localhost:3000/members/add_member/" + ID });
+      // await client.close();
+      res.render('index', { title: 'Express', content: "http://localhost:3000/members/add_member/" + ID });
     }
   
   })(req.mongoClient);
