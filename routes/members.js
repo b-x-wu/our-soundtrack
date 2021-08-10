@@ -2,7 +2,6 @@ var express = require('express');
 var router = express.Router();
 const got = require('got');
 require('dotenv').config();
-const { ObjectID } = require('mongodb');
 const [serialize, addQueryParams, getFields] = require("../utils/string_parsing"); 
 
 /* GET users listing. */
@@ -96,7 +95,7 @@ router.get('/add_member', (req, res) => {
 
       const cursor = await collection.find({_id: content['groupId']});
       const allSongsObj = await cursor.next();
-      var allSongs = allSongsObj['all_songs'];
+      var allSongs = allSongsObj['allSongs'];
 
       for (let song of memberInfo['topTracks']) {
         let pos = 49 - memberInfo['topTracks'].indexOf(song)
@@ -109,12 +108,10 @@ router.get('/add_member', (req, res) => {
         }
       }
 
-      // console.log(allSongs);
-
       await collection.updateOne(
         {_id: content['groupId']}, 
         {
-          $set: {all_songs: allSongs}
+          $set: {allSongs: allSongs}
         }
       );
 
@@ -172,6 +169,6 @@ router.get('/get_tokens', (req, res) => {
 
 });
 
-// TODO: Clear cookies
+// TODO: Comments!!!
 
 module.exports = router;

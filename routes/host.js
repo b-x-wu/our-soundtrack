@@ -16,7 +16,7 @@ router.get('/auth', (req, res) => {
     client_id: process.env.CLIENT_ID,
     response_type: 'code',
     redirect_uri: 'http://localhost:3000/host/get_tokens',
-    scope: 'user-top-read'
+    scope: 'user-top-read playlist-modify-public'
   }
 
   const authURL = addQueryParams('https://accounts.spotify.com/en/authorize', params);
@@ -54,8 +54,8 @@ router.get('/get_tokens', (req, res, next) => {
 
       const responseBody = JSON.parse(response.body);
 
-      res.cookie('access_token', responseBody['access_token'], { httpOnly: true });
-      res.cookie('refresh_token', responseBody['refresh_token'], { httpOnly: true });
+      res.cookie('accessToken', responseBody['access_token'], { httpOnly: true });
+      res.cookie('refreshToken', responseBody['refresh_token'], { httpOnly: true });
       res.redirect('/host/add_host');
 
     } catch (e) {
@@ -72,8 +72,8 @@ router.get('/get_tokens', (req, res, next) => {
 router.get('/add_host', (req, res) => {
 
   const content = req.cookies;
-  res.clearCookie('access_token', { httpOnly: true });
-  res.clearCookie('refresh_token', { httpOnly: true });
+  res.clearCookie('accessToken', { httpOnly: true });
+  res.clearCookie('refreshToken', { httpOnly: true });
 
   const oID = new ObjectID();
   const ID = oID.toHexString();
@@ -91,34 +91,60 @@ router.get('/add_host', (req, res) => {
       const collection = client.db("our-soundtrack").collection("groups");
 
       const hostInfo = await (async () => {
-
+        // TODO: does this need to be its own try/catch?
         try {
 
           const userInfo = await got('https://api.spotify.com/v1/me', {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
-              'Authorization': 'Bearer ' + content['access_token']
+              'Authorization': 'Bearer ' + content['accessToken']
             }
           });
 
           const topTracks = await got(addQueryParams("https://api.spotify.com/v1/me/top/tracks", topTrackQuery), {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
-              'Authorization': 'Bearer ' + content['access_token']
+              'Authorization': 'Bearer ' + content['accessToken']
             }
           });
 
           const topTrackItems = JSON.parse(topTracks.body)['items'];
+          const userInfoObj = JSON.parse(userInfo.body);
+          const userID = userInfoObj['id'];
+
+          // Create Playlist
+          const playlistBody = {
+            name: "Group Playlist"
+          };
+
+          const createPlaylist = await got(`https://api.spotify.com/v1/users/${userID}/playlists`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + content['accessToken']
+            },
+            body: JSON.stringify(playlistBody)
+          });
+
+          const createPlaylistObj = JSON.parse(createPlaylist.body);
 
           return {host: {
-              userInfo: getFields(JSON.parse(userInfo.body), ['id', 'uri', 'display_name']), 
-              topTracks: topTrackItems.map(x => x['uri'])
+              userInfo: getFields(userInfoObj, ['id', 'uri', 'display_name']), 
+              topTracks: topTrackItems.map(x => x['uri']),
+              tokens: {
+                accessToken: content['accessToken'], // TODO: Encrypt these
+                refreshToken: content['refreshToken']
+              }
             },
             members: [],
-            all_songs: topTrackItems.reduce((obj, x) => {
+            allSongs: topTrackItems.reduce((obj, x) => {
               obj[x['uri']] = 49 - topTrackItems.indexOf(x);
               return obj;
-            }, {}), // allSongs?
+            }, {}),
+            playlist: {
+              uri: createPlaylistObj['uri'],
+              id: createPlaylistObj['id']
+            },
             _id: ID
           };
 
@@ -135,12 +161,10 @@ router.get('/add_host', (req, res) => {
       console.log(hostInfo);
       await collection.insertOne(hostInfo);
 
-      // TODO: Create playlist
-
     } catch (e) {
       console.log(e);
       res.render('index', { title: 'Express', content: "oops all errors" });
-    } finally{
+    } finally {
       // await client.close();
       res.render('index', { title: 'Express', content: "http://localhost:3000/members/add_member/" + ID });
     }
