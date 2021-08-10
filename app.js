@@ -9,8 +9,8 @@ require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const client = new MongoClient(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
+const hostRouter = require('./routes/host');
+const membersRouter = require('./routes/members');
 
 const app = express();
 
@@ -29,8 +29,8 @@ app.use(function(req, res, next) {
   next();
 });
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
+app.use('/host', hostRouter);
+app.use('/members', membersRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
