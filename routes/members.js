@@ -94,8 +94,11 @@ router.get('/add_member', (req, res) => {
       );
 
       const cursor = await collection.find({_id: content['groupId']});
-      const allSongsObj = await cursor.next();
-      var allSongs = allSongsObj['allSongs'];
+      const groupObj = await cursor.next();
+
+      var allSongs = groupObj['allSongs'];
+      const playlistId = groupObj['playlist']['id'];
+      const accessToken = groupObj['host']['tokens']['accessToken'];
 
       for (let song of memberInfo['topTracks']) {
         let pos = 49 - memberInfo['topTracks'].indexOf(song)
@@ -107,6 +110,48 @@ router.get('/add_member', (req, res) => {
           allSongs[song] = pos;
         }
       }
+
+      // TODO: remove songs from playlist
+
+      const playlistItems = await got(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+        headers: {
+          'Authorization': 'Bearer ' + accessToken
+        }
+      });
+
+      const tracksInPlaylist = JSON.parse(playlistItems.body)['items'].map(x => {return {uri: x['track']['uri']}});
+
+
+      await got(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+        method: 'DELETE',
+        body: JSON.stringify({tracks: tracksInPlaylist}),
+        headers: {
+          'Authorization': 'Bearer ' + accessToken, // TODO: what if access token needs refreshing?
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const addSongsBody = {
+        uris: ((obj) => {
+          let sortable = [];
+          for (key in obj) {
+            sortable.push([key, obj['key']]);
+          }
+          sortable.sort((s1, s2) => {
+            return s1[1] - s2[1];
+          })
+          return sortable;
+        })(allSongs).map(x => x[0]).slice(0, 50) // TODO: make playlist size flexible
+      };
+
+      await got(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + accessToken
+        },
+        body: JSON.stringify(addSongsBody)
+      });
 
       await collection.updateOne(
         {_id: content['groupId']}, 

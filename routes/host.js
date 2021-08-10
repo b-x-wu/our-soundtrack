@@ -113,7 +113,7 @@ router.get('/add_host', (req, res) => {
           const userID = userInfoObj['id'];
 
           // Create Playlist
-          const playlistBody = {
+          const createPlaylistBody = {
             name: "Group Playlist"
           };
 
@@ -123,10 +123,27 @@ router.get('/add_host', (req, res) => {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer ' + content['accessToken']
             },
-            body: JSON.stringify(playlistBody)
+            body: JSON.stringify(createPlaylistBody)
           });
 
           const createPlaylistObj = JSON.parse(createPlaylist.body);
+
+          // Add songs to playlist
+
+          // console.log(topTrackItems.map(x => x['uri']).slice(0, 50));
+
+          const addSongsBody = {
+            uris: topTrackItems.map(x => x['uri']).slice(0, 50), // TODO: make playlist size flexible
+          };
+
+          await got(`https://api.spotify.com/v1/playlists/${createPlaylistObj['id']}/tracks`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + content['accessToken']
+            },
+            body: JSON.stringify(addSongsBody)
+          });
 
           return {host: {
               userInfo: getFields(userInfoObj, ['id', 'uri', 'display_name']), 
@@ -158,7 +175,7 @@ router.get('/add_host', (req, res) => {
 
       })();
 
-      console.log(hostInfo);
+      // console.log(hostInfo);
       await collection.insertOne(hostInfo);
 
     } catch (e) {
