@@ -3,7 +3,8 @@ const router = express.Router();
 const got = require('got');
 const { ObjectID } = require('mongodb');
 require('dotenv').config();
-const [serialize, addQueryParams, getFields] = require("../utils/string_parsing"); 
+const [serialize, addQueryParams, getFields, encrypt, decrypt] = require("../utils/string_parsing");
+const crypto = require('crypto'); 
 
 router.get('/', (req, res, next) => {
   res.render('index', { title: 'Express', content: process.env.CLIENT_ID });
@@ -146,8 +147,8 @@ router.get('/add_host', (req, res) => {
               userInfo: getFields(userInfoObj, ['id', 'uri', 'display_name']), 
               topTracks: topTrackItems.map(x => x['uri']),
               tokens: {
-                accessToken: content['accessToken'], // TODO: Encrypt these
-                refreshToken: content['refreshToken']
+                accessToken: encrypt(content['accessToken']), // TODO: Encrypt these, look into autoencryption
+                refreshToken: encrypt(content['refreshToken'])
               }
             },
             members: [],

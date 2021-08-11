@@ -2,7 +2,8 @@ var express = require('express');
 var router = express.Router();
 const got = require('got');
 require('dotenv').config();
-const [serialize, addQueryParams, getFields] = require("../utils/string_parsing"); 
+const [serialize, addQueryParams, getFields, encrypt, decrypt] = require("../utils/string_parsing");
+const crypto = require('crypto');
 
 /* GET users listing. */
 router.get('/', (req, res, next) => {
@@ -34,7 +35,6 @@ router.get('/add_member', (req, res) => {
 
   const content = req.cookies;
   res.clearCookie('access_token', { httpOnly: true });
-  res.clearCookie('refresh_token', { httpOnly: true });
   res.clearCookie('groupId', { httpOnly: true });
 
   const topTrackQuery = {
@@ -75,6 +75,8 @@ router.get('/add_member', (req, res) => {
         } catch (e) {
 
           console.log(e);
+          res.clearCookie('access_token', { httpOnly: true });
+          res.clearCookie('groupId', { httpOnly: true });
           res.render('index', { title: 'Express', content: "oops all errors" });
           return;
 
@@ -96,9 +98,11 @@ router.get('/add_member', (req, res) => {
       const cursor = await collection.find({_id: content['groupId']});
       const groupObj = await cursor.next();
 
+      // TODO: what if the playlist was deleted
+
       var allSongs = groupObj['allSongs'];
       const playlistId = groupObj['playlist']['id'];
-      const accessToken = groupObj['host']['tokens']['accessToken'];
+      const accessToken = decrypt(groupObj['host']['tokens']['accessToken']);
 
       for (let song of memberInfo['topTracks']) {
         let pos = 49 - memberInfo['topTracks'].indexOf(song)
@@ -161,6 +165,8 @@ router.get('/add_member', (req, res) => {
     } catch(e) {
 
       console.log(e);
+      res.clearCookie('access_token', { httpOnly: true });
+      res.clearCookie('groupId', { httpOnly: true });
       res.render('index', { title: 'Express', content: "oops all errors" });
 
     } finally{
@@ -198,7 +204,6 @@ router.get('/get_tokens', (req, res) => {
       const responseBody = JSON.parse(response.body);
 
       res.cookie('access_token', responseBody['access_token'], { httpOnly: true });
-      res.cookie('refresh_token', responseBody['refresh_token'], { httpOnly: true });
       res.redirect('/members/refresh_tokens');
 
     } catch (e) {
@@ -220,7 +225,7 @@ router.get('/refresh_tokens', (req, res) => {
       const collection = client.db("our-soundtrack").collection("groups");
       const cursor = await collection.find({_id: req.cookies['groupId']});
       const groupObj = await cursor.next();
-      const refreshToken = groupObj['host']['tokens']['refreshToken'];
+      const refreshToken = decrypt(groupObj['host']['tokens']['refreshToken']);
 
       const refreshBody = {
         grant_type: 'refresh_token',
@@ -236,7 +241,7 @@ router.get('/refresh_tokens', (req, res) => {
         body: serialize(refreshBody)
       });
 
-      const newAccessToken = JSON.parse(refreshResponse.body)['access_token'];
+      const newAccessToken = encrypt(JSON.parse(refreshResponse.body)['access_token']);
       collection.updateOne(
         {
           _id: req.cookies['groupId']
@@ -247,7 +252,6 @@ router.get('/refresh_tokens', (req, res) => {
 
     } catch (e) {
       res.clearCookie('access_token', { httpOnly: true });
-      res.clearCookie('refresh_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
       console.log(e);
       res.render('index', {title: 'Express', content: 'oops all errors'});
