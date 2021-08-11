@@ -111,8 +111,6 @@ router.get('/add_member', (req, res) => {
         }
       }
 
-      // TODO: remove songs from playlist
-
       const playlistItems = await got(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
         headers: {
           'Authorization': 'Bearer ' + accessToken
@@ -201,7 +199,7 @@ router.get('/get_tokens', (req, res) => {
 
       res.cookie('access_token', responseBody['access_token'], { httpOnly: true });
       res.cookie('refresh_token', responseBody['refresh_token'], { httpOnly: true });
-      res.redirect('/members/add_member');
+      res.redirect('/members/refresh_tokens');
 
     } catch (e) {
 
@@ -212,6 +210,51 @@ router.get('/get_tokens', (req, res) => {
 
   })();
 
+});
+
+router.get('/refresh_tokens', (req, res) => {
+  (async (client) => {
+    try {
+
+      await client.connect();
+      const collection = client.db("our-soundtrack").collection("groups");
+      const cursor = await collection.find({_id: req.cookies['groupId']});
+      const groupObj = await cursor.next();
+      const refreshToken = groupObj['host']['tokens']['refreshToken'];
+
+      const refreshBody = {
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken
+      };
+
+      const refreshResponse = await got('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + Buffer.from(process.env.CLIENT_ID + ':' + process.env.CLIENT_SECRET).toString('base64')
+        },
+        body: serialize(refreshBody)
+      });
+
+      const newAccessToken = JSON.parse(refreshResponse.body)['access_token'];
+      collection.updateOne(
+        {
+          _id: req.cookies['groupId']
+        }, {
+          $set: {'host.tokens.accessToken': newAccessToken}
+        }
+      );
+
+    } catch (e) {
+      res.clearCookie('access_token', { httpOnly: true });
+      res.clearCookie('refresh_token', { httpOnly: true });
+      res.clearCookie('groupId', { httpOnly: true });
+      console.log(e);
+      res.render('index', {title: 'Express', content: 'oops all errors'});
+    } finally {
+      res.redirect('/members/add_member')
+    }
+  })(req.mongoClient);
 });
 
 // TODO: Comments!!!

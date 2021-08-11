@@ -49,9 +49,6 @@ router.get('/get_tokens', (req, res, next) => {
         }
       });
 
-      // res.render('index', { title: 'Express', content: response.body });
-      // next('route');
-
       const responseBody = JSON.parse(response.body);
 
       res.cookie('accessToken', responseBody['access_token'], { httpOnly: true });
