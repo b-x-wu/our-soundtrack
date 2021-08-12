@@ -15,6 +15,7 @@ router.get('/add_member/:groupId', (req, res, next) => {
   if (req.cookies['access_token']) { next(); }
 
   res.cookie('groupId', req.params.groupId, { httpOnly: true });
+  
 
   const params = {
     client_id: process.env.CLIENT_ID,
@@ -32,10 +33,11 @@ router.get('/add_member/:groupId', (req, res, next) => {
 router.get('/add_member', (req, res) => {
 
   // TODO: Check if user is already in group
-
+  console.log(req.cookies);
   const content = req.cookies;
   res.clearCookie('access_token', { httpOnly: true });
   res.clearCookie('groupId', { httpOnly: true });
+  res.clearCookie('member_id', { httpOnly: true });
 
   const topTrackQuery = {
       time_range: 'long_term',
@@ -46,51 +48,36 @@ router.get('/add_member', (req, res) => {
 
     try {
 
-      const memberInfo = await (async () => {
+      const topTracks = await (async () => {
 
         try {
 
-          const userInfo = await got('https://api.spotify.com/v1/me', {
+          const topTracksResponse = await got(addQueryParams("https://api.spotify.com/v1/me/top/tracks", topTrackQuery), {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
               'Authorization': 'Bearer ' + content['access_token']
             }
           });
 
-          const topTracks = await got(addQueryParams("https://api.spotify.com/v1/me/top/tracks", topTrackQuery), {
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'Authorization': 'Bearer ' + content['access_token']
-            }
-          });
-
-          return {
-            userInfo: getFields(JSON.parse(userInfo.body), ['id', 'uri', 'display_name']), 
-            topTracks: JSON.parse(topTracks.body)['items'].map(x => x['uri'])
-          };
+          return JSON.parse(topTracksResponse.body)['items'].map(x => x['uri']);
 
         } catch (e) {
 
           console.log(e);
-          res.clearCookie('access_token', { httpOnly: true });
-          res.clearCookie('groupId', { httpOnly: true });
           res.render('index', { title: 'Express', content: "oops all errors" });
           return;
 
         }
 
       })();
-      
-      await collection.updateOne({_id: content['groupId']}, [
-          { $addFields: 
-            {
-              members: {
-                $concatArrays: ["$members", [memberInfo]]
-              }
-            }
-          }
-        ]
-      );
+
+      // console.log(content);
+      await collection.updateOne(
+        {_id: content['groupId'], "members.userInfo.id": content['member_id']},
+        {$set: 
+          {"members.$.topTracks": topTracks}
+        }
+      ); // not done yet
 
       const cursor = await collection.find({_id: content['groupId']});
       const groupObj = await cursor.next();
@@ -101,8 +88,8 @@ router.get('/add_member', (req, res) => {
       const playlistId = groupObj['playlist']['id'];
       const accessToken = decrypt(groupObj['host']['tokens']['accessToken']);
 
-      for (let song of memberInfo['topTracks']) {
-        let pos = 49 - memberInfo['topTracks'].indexOf(song)
+      for (let song of topTracks) {
+        let pos = 49 - topTracks.indexOf(song)
         if (Object.keys(allSongs).includes(song)) {
           let originalScore = allSongs[song];
           let n = (originalScore - (originalScore % 50)) / 50 + 2;
@@ -164,10 +151,11 @@ router.get('/add_member', (req, res) => {
       console.log(e);
       res.clearCookie('access_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
+      res.clearCookie('member_id', { httpOnly: true });
       res.render('index', { title: 'Express', content: "oops all errors" });
 
     } finally{
-      // await client.close(); // TODO: after one go the client closes and doesn't reopen
+      // TODO: after one go the client closes and doesn't reopen
       res.render('index', { title: 'Express', content: "all good, check mongodb" });
     }
   
@@ -251,9 +239,61 @@ router.get('/refresh_tokens', (req, res) => {
       console.log(e);
       res.render('index', {title: 'Express', content: 'oops all errors'});
     } finally {
-      res.redirect('/members/add_member')
+      res.redirect('/members/check_member')
     }
   })(req.collection);
+});
+
+router.get('/check_member', (req, res, next) => {
+  (async (collection) => {
+    try {
+      const cursor = await collection.find({_id: req.cookies['groupId']});
+      const groupObj = await cursor.next();
+
+      const userIDs = groupObj['members'].map(x => x['userInfo']['id']).concat([groupObj['host']['userInfo']['id']]);
+
+      const memberInfo = await got('https://api.spotify.com/v1/me', {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer ' + req.cookies['access_token']
+        }
+      });
+      const memberInfoObj = JSON.parse(memberInfo.body);
+      res.cookie('member_id', memberInfoObj['id'], { httpOnly: true });
+
+      if (userIDs.includes(memberInfoObj['id'])) {
+        res.clearCookie('access_token', { httpOnly: true });
+        res.clearCookie('groupId', { httpOnly: true });
+        res.clearCookie('member_id', { httpOnly: true});
+        res.render('index', {title: 'Express', content: 'user already a part of the group'});
+        // what if they want to update their taste
+      } else {
+        // add the userInfo
+        
+        await collection.updateOne({_id: req.cookies['groupId']}, [
+          { $addFields: 
+            {
+              members: {
+                $concatArrays: ["$members", [{
+                  userInfo: getFields(memberInfoObj, ['id', 'uri', 'display_name']),
+                  topTracks: []
+                }]]
+              }
+            }
+          }
+        ]);
+        res.redirect('/members/add_member');
+      }
+
+    } catch (e) {
+      res.clearCookie('access_token', { httpOnly: true });
+      res.clearCookie('groupId', { httpOnly: true });
+      console.log(e);
+      res.render('index', {title: 'Express', content: 'oops all errors'});
+    } finally {
+
+    }
+  })(req.collection); 
 });
 
 // TODO: Comments!!!

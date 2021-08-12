@@ -69,6 +69,8 @@ router.get('/get_tokens', (req, res, next) => {
 
 router.get('/add_host', (req, res) => {
 
+  console.log('in /add_host')
+
   const content = req.cookies;
   res.clearCookie('accessToken', { httpOnly: true });
   res.clearCookie('refreshToken', { httpOnly: true });
@@ -85,9 +87,13 @@ router.get('/add_host', (req, res) => {
 
     try {
 
+      console.log('in collection function')
+
       const hostInfo = await (async () => {
         // TODO: does this need to be its own try/catch?
         try {
+
+          console.log('in hostInfo');
 
           const userInfo = await got('https://api.spotify.com/v1/me', {
             headers: {
