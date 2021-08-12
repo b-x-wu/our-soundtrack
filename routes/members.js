@@ -42,12 +42,9 @@ router.get('/add_member', (req, res) => {
       limit: 50,
   };
 
-  (async (client) => {
+  (async (collection) => {
 
     try {
-
-      await client.connect();
-      const collection = client.db("our-soundtrack").collection("groups");
 
       const memberInfo = await (async () => {
 
@@ -128,7 +125,7 @@ router.get('/add_member', (req, res) => {
         method: 'DELETE',
         body: JSON.stringify({tracks: tracksInPlaylist}),
         headers: {
-          'Authorization': 'Bearer ' + accessToken, // TODO: what if access token needs refreshing?
+          'Authorization': 'Bearer ' + accessToken,
           'Content-Type': 'application/json'
         }
       });
@@ -174,7 +171,7 @@ router.get('/add_member', (req, res) => {
       res.render('index', { title: 'Express', content: "all good, check mongodb" });
     }
   
-  })(req.mongoClient);
+  })(req.collection);
 });
 
 router.get('/get_tokens', (req, res) => {
@@ -218,11 +215,9 @@ router.get('/get_tokens', (req, res) => {
 });
 
 router.get('/refresh_tokens', (req, res) => {
-  (async (client) => {
+  (async (collection) => {
     try {
 
-      await client.connect();
-      const collection = client.db("our-soundtrack").collection("groups");
       const cursor = await collection.find({_id: req.cookies['groupId']});
       const groupObj = await cursor.next();
       const refreshToken = decrypt(groupObj['host']['tokens']['refreshToken']);
@@ -258,7 +253,7 @@ router.get('/refresh_tokens', (req, res) => {
     } finally {
       res.redirect('/members/add_member')
     }
-  })(req.mongoClient);
+  })(req.collection);
 });
 
 // TODO: Comments!!!

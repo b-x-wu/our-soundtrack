@@ -9,6 +9,19 @@ require('dotenv').config();
 const { MongoClient } = require('mongodb');
 const client = new MongoClient(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
+var collection;
+async function run() {
+  try {
+    await client.connect();
+    db = await client.db("our-soundtrack"); //.command({ ping : 1 });
+    collection = db.collection('groups');
+  } finally {
+    // await client.close();
+  }
+}
+
+run().catch(console.dir);
+
 const hostRouter = require('./routes/host');
 const membersRouter = require('./routes/members');
 
@@ -25,7 +38,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use((req, res, next) => {
-  req.mongoClient = client;
+  req.collection = collection;
   next();
 });
 

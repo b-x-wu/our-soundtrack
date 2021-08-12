@@ -81,12 +81,9 @@ router.get('/add_host', (req, res) => {
       limit: 50,
   };
 
-  (async (client) => {
+  (async (collection) => {
 
     try {
-
-      await client.connect();
-      const collection = client.db("our-soundtrack").collection("groups");
 
       const hostInfo = await (async () => {
         // TODO: does this need to be its own try/catch?
@@ -184,7 +181,7 @@ router.get('/add_host', (req, res) => {
       res.render('index', { title: 'Express', content: "http://localhost:3000/members/add_member/" + ID });
     }
   
-  })(req.mongoClient);
+  })(req.collection);
 
 });
 
