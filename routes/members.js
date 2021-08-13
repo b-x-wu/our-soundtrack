@@ -15,7 +15,7 @@ router.get('/add_member/:groupId', (req, res, next) => {
   const params = {
     client_id: process.env.CLIENT_ID,
     response_type: 'code',
-    redirect_uri: 'http://localhost:3000/members/get_tokens',
+    redirect_uri: 'https://our-soundtrack.herokuapp.com/members/get_tokens',
     scope: 'user-top-read'
   }
 
@@ -165,7 +165,7 @@ router.get('/get_tokens', (req, res) => {
   const body = {
     grant_type: 'authorization_code',
     code: req.query['code'],
-    redirect_uri: 'http://localhost:3000/members/get_tokens',
+    redirect_uri: 'https://our-soundtrack.herokuapp.com/members/get_tokens',
     client_id: process.env.CLIENT_ID,
     client_secret: process.env.CLIENT_SECRET
   };

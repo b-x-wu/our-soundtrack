@@ -16,7 +16,7 @@ router.get('/auth', (req, res) => {
   const params = {
     client_id: process.env.CLIENT_ID,
     response_type: 'code',
-    redirect_uri: 'http://localhost:3000/host/get_tokens',
+    redirect_uri: 'https://our-soundtrack.herokuapp.com/host/get_tokens',
     scope: 'user-top-read playlist-modify-public'
   }
 
@@ -35,7 +35,7 @@ router.get('/get_tokens', (req, res, next) => {
   const body = {
     grant_type: 'authorization_code',
     code: req.query['code'],
-    redirect_uri: 'http://localhost:3000/host/get_tokens',
+    redirect_uri: 'https://our-soundtrack.herokuapp.com/host/get_tokens',
     client_id: process.env.CLIENT_ID,
     client_secret: process.env.CLIENT_SECRET
   };
@@ -182,7 +182,7 @@ router.get('/add_host', (req, res) => {
       res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
     } finally {
       // await client.close();
-      res.render('index', { title: 'Express', content: "Use this link to add more users: http://localhost:3000/members/add_member/" + ID });
+      res.render('index', { title: 'Express', content: "Use this link to add more users: https://our-soundtrack.herokuapp.com/members/add_member/" + ID });
     }
   
   })(req.collection);
