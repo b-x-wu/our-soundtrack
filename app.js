@@ -22,6 +22,7 @@ async function run() {
 
 run().catch(console.dir);
 
+const indexRouter = require('./routes/index');
 const hostRouter = require('./routes/host');
 const membersRouter = require('./routes/members');
 
@@ -42,6 +43,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/', indexRouter);
 app.use('/host', hostRouter);
 app.use('/members', membersRouter);
 

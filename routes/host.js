@@ -30,6 +30,8 @@ router.get('/get_tokens', (req, res, next) => {
   // requests access tokens
   // TODO: what happens if the user denies access?
 
+  if (req.query['error']) { res.redirect('/host/access_denied'); }
+
   const body = {
     grant_type: 'authorization_code',
     code: req.query['code'],
@@ -59,7 +61,7 @@ router.get('/get_tokens', (req, res, next) => {
     } catch (e) {
 
       console.log(e.response.body);
-      res.render('index', { title: 'Express', content: "oops all errors" });
+      res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
 
     }
 
@@ -67,9 +69,11 @@ router.get('/get_tokens', (req, res, next) => {
 
 });
 
-router.get('/add_host', (req, res) => {
+router.get('/access_denied', (req, res) => {
+  res.render('index', {title: 'Express', content: 'User access denied.'});
+});
 
-  console.log('in /add_host')
+router.get('/add_host', (req, res) => {
 
   const content = req.cookies;
   res.clearCookie('accessToken', { httpOnly: true });
@@ -79,7 +83,7 @@ router.get('/add_host', (req, res) => {
   const ID = oID.toHexString();
 
   const topTrackQuery = {
-      time_range: 'long_term',
+      time_range: 'long_term', // add long, medium, and short term
       limit: 50,
   };
 
@@ -87,13 +91,9 @@ router.get('/add_host', (req, res) => {
 
     try {
 
-      console.log('in collection function')
-
       const hostInfo = await (async () => {
-        // TODO: does this need to be its own try/catch?
+        
         try {
-
-          console.log('in hostInfo');
 
           const userInfo = await got('https://api.spotify.com/v1/me', {
             headers: {
@@ -131,8 +131,6 @@ router.get('/add_host', (req, res) => {
 
           // Add songs to playlist
 
-          // console.log(topTrackItems.map(x => x['uri']).slice(0, 50));
-
           const addSongsBody = {
             uris: topTrackItems.map(x => x['uri']).slice(0, 50), // TODO: make playlist size flexible
           };
@@ -150,7 +148,7 @@ router.get('/add_host', (req, res) => {
               userInfo: getFields(userInfoObj, ['id', 'uri', 'display_name']), 
               topTracks: topTrackItems.map(x => x['uri']),
               tokens: {
-                accessToken: encrypt(content['accessToken']), // TODO: Encrypt these, look into autoencryption
+                accessToken: encrypt(content['accessToken']),
                 refreshToken: encrypt(content['refreshToken'])
               }
             },
@@ -169,7 +167,7 @@ router.get('/add_host', (req, res) => {
         } catch (e) {
 
           console.log(e);
-          res.render('index', { title: 'Express', content: "oops all errors" });
+          res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
           return;
 
         }
@@ -181,18 +179,14 @@ router.get('/add_host', (req, res) => {
 
     } catch (e) {
       console.log(e);
-      res.render('index', { title: 'Express', content: "oops all errors" });
+      res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
     } finally {
       // await client.close();
-      res.render('index', { title: 'Express', content: "http://localhost:3000/members/add_member/" + ID });
+      res.render('index', { title: 'Express', content: "Use this link to add more users: http://localhost:3000/members/add_member/" + ID });
     }
   
   })(req.collection);
 
-});
-
-router.get('/refresh', (req, res) => {
-  // TODO: refresh authentication token
 });
 
 module.exports = router;

@@ -5,11 +5,6 @@ require('dotenv').config();
 const [serialize, addQueryParams, getFields, encrypt, decrypt] = require("../utils/string_parsing");
 const crypto = require('crypto');
 
-/* GET users listing. */
-router.get('/', (req, res, next) => {
-  res.send('respond with a resource');
-});
-
 router.get('/add_member/:groupId', (req, res, next) => {
 
   if (req.cookies['access_token']) { next(); }
@@ -32,7 +27,6 @@ router.get('/add_member/:groupId', (req, res, next) => {
 
 router.get('/add_member', (req, res) => {
 
-  // TODO: Check if user is already in group
   console.log(req.cookies);
   const content = req.cookies;
   res.clearCookie('access_token', { httpOnly: true });
@@ -64,7 +58,7 @@ router.get('/add_member', (req, res) => {
         } catch (e) {
 
           console.log(e);
-          res.render('index', { title: 'Express', content: "oops all errors" });
+          res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
           return;
 
         }
@@ -86,6 +80,7 @@ router.get('/add_member', (req, res) => {
 
       var allSongs = groupObj['allSongs'];
       const playlistId = groupObj['playlist']['id'];
+      const playlistUri = groupObj['playlist']['uri'];
       const accessToken = decrypt(groupObj['host']['tokens']['accessToken']);
 
       for (let song of topTracks) {
@@ -98,6 +93,7 @@ router.get('/add_member', (req, res) => {
           allSongs[song] = pos;
         }
       }
+
 
       const playlistItems = await got(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
         headers: {
@@ -146,17 +142,16 @@ router.get('/add_member', (req, res) => {
         }
       );
 
+      res.render('index', { title: 'Express', content: "Copy this into your search bar: " + playlistUri });
+
     } catch(e) {
 
       console.log(e);
       res.clearCookie('access_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
       res.clearCookie('member_id', { httpOnly: true });
-      res.render('index', { title: 'Express', content: "oops all errors" });
+      res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
 
-    } finally{
-      // TODO: after one go the client closes and doesn't reopen
-      res.render('index', { title: 'Express', content: "all good, check mongodb" });
     }
   
   })(req.collection);
@@ -164,7 +159,8 @@ router.get('/add_member', (req, res) => {
 
 router.get('/get_tokens', (req, res) => {
   // requests access tokens
-  // TODO: what happens if the user denies access?
+  
+  if (req.query['error']) { res.redirect('/members/access_denied'); }
 
   const body = {
     grant_type: 'authorization_code',
@@ -194,12 +190,16 @@ router.get('/get_tokens', (req, res) => {
     } catch (e) {
 
       console.log(e.response.body);
-      res.render('index', { title: 'Express', content: "oops all errors" });
+      res.render('index', { title: 'Express', content: "Error. Tell Bruce about this" });
 
     }
 
   })();
 
+});
+
+router.get('/access_denied', (req, res) => {
+  res.render('index', {title: 'Express', content: 'User access denied'});
 });
 
 router.get('/refresh_tokens', (req, res) => {
@@ -237,7 +237,7 @@ router.get('/refresh_tokens', (req, res) => {
       res.clearCookie('access_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
       console.log(e);
-      res.render('index', {title: 'Express', content: 'oops all errors'});
+      res.render('index', {title: 'Express', content: "Error. Tell Bruce about this." });
     } finally {
       res.redirect('/members/check_member')
     }
@@ -265,7 +265,7 @@ router.get('/check_member', (req, res, next) => {
         res.clearCookie('access_token', { httpOnly: true });
         res.clearCookie('groupId', { httpOnly: true });
         res.clearCookie('member_id', { httpOnly: true});
-        res.render('index', {title: 'Express', content: 'user already a part of the group'});
+        res.render('index', {title: 'Express', content: 'User is already a part of the group'});
         // what if they want to update their taste
       } else {
         // add the userInfo
@@ -289,7 +289,7 @@ router.get('/check_member', (req, res, next) => {
       res.clearCookie('access_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
       console.log(e);
-      res.render('index', {title: 'Express', content: 'oops all errors'});
+      res.render('index', {title: 'Express', content: "Error. Please tell Bruce about this."});
     } finally {
 
     }
