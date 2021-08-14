@@ -15,9 +15,11 @@ router.get('/add_member/:groupId', (req, res, next) => {
   const params = {
     client_id: process.env.CLIENT_ID,
     response_type: 'code',
-    redirect_uri: process.env.URL_PREFIX + 'members/get_tokens',
+    redirect_uri: process.env.URL_PREFIX + '/members/get_tokens',
     scope: 'user-top-read'
   }
+
+  console.log(params['redirect_uri']);
 
   const authURL = addQueryParams('https://accounts.spotify.com/en/authorize', params);
 
@@ -76,8 +78,6 @@ router.get('/add_member', (req, res) => {
       const cursor = await collection.find({_id: content['groupId']});
       const groupObj = await cursor.next();
 
-      // TODO: what if the playlist was deleted
-
       var allSongs = groupObj['allSongs'];
       const playlistId = groupObj['playlist']['id'];
       const playlistUri = groupObj['playlist']['uri'];
@@ -94,6 +94,8 @@ router.get('/add_member', (req, res) => {
         }
       }
 
+      console.log("accessToken: " + accessToken);
+      console.log("playlistId: " + playlistId);
 
       const playlistItems = await got(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
         headers: {
@@ -102,7 +104,6 @@ router.get('/add_member', (req, res) => {
       });
 
       const tracksInPlaylist = JSON.parse(playlistItems.body)['items'].map(x => {return {uri: x['track']['uri']}});
-
 
       await got(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
         method: 'DELETE',
@@ -165,7 +166,7 @@ router.get('/get_tokens', (req, res) => {
   const body = {
     grant_type: 'authorization_code',
     code: req.query['code'],
-    redirect_uri: process.env.URL_PREFIX + 'members/get_tokens',
+    redirect_uri: process.env.URL_PREFIX + '/members/get_tokens',
     client_id: process.env.CLIENT_ID,
     client_secret: process.env.CLIENT_SECRET
   };
@@ -265,11 +266,8 @@ router.get('/check_member', (req, res, next) => {
         res.clearCookie('access_token', { httpOnly: true });
         res.clearCookie('groupId', { httpOnly: true });
         res.clearCookie('member_id', { httpOnly: true});
-        res.render('index', {title: 'Our Playlist'});
-        // what if they want to update their taste
+        res.render('index', {title: 'Our Playlist', content: 'User already a part of the group.'});
       } else {
-        // add the userInfo
-        
         await collection.updateOne({_id: req.cookies['groupId']}, [
           { $addFields: 
             {
