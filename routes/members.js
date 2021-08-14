@@ -15,7 +15,7 @@ router.get('/add_member/:groupId', (req, res, next) => {
   const params = {
     client_id: process.env.CLIENT_ID,
     response_type: 'code',
-    redirect_uri: 'https://our-soundtrack.herokuapp.com/members/get_tokens',
+    redirect_uri: process.env.URL_PREFIX + 'members/get_tokens',
     scope: 'user-top-read'
   }
 
@@ -58,7 +58,7 @@ router.get('/add_member', (req, res) => {
         } catch (e) {
 
           console.log(e);
-          res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
+          res.render('index', { title: 'Our Playlist', content: "Error. Please tell Bruce about this." });
           return;
 
         }
@@ -142,7 +142,7 @@ router.get('/add_member', (req, res) => {
         }
       );
 
-      res.render('index', { title: 'Express', content: "Copy this into your search bar: " + playlistUri });
+      res.render('index', { title: 'Our Playlist', content: "Copy this into your search bar: " + playlistUri });
 
     } catch(e) {
 
@@ -150,7 +150,7 @@ router.get('/add_member', (req, res) => {
       res.clearCookie('access_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
       res.clearCookie('member_id', { httpOnly: true });
-      res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
+      res.render('index', { title: 'Our Playlist', content: "Error. Please tell Bruce about this." });
 
     }
   
@@ -165,7 +165,7 @@ router.get('/get_tokens', (req, res) => {
   const body = {
     grant_type: 'authorization_code',
     code: req.query['code'],
-    redirect_uri: 'https://our-soundtrack.herokuapp.com/members/get_tokens',
+    redirect_uri: process.env.URL_PREFIX + 'members/get_tokens',
     client_id: process.env.CLIENT_ID,
     client_secret: process.env.CLIENT_SECRET
   };
@@ -190,7 +190,7 @@ router.get('/get_tokens', (req, res) => {
     } catch (e) {
 
       console.log(e.response.body);
-      res.render('index', { title: 'Express', content: "Error. Tell Bruce about this" });
+      res.render('index', { title: 'Our Playlist', content: "Error. Tell Bruce about this" });
 
     }
 
@@ -199,7 +199,7 @@ router.get('/get_tokens', (req, res) => {
 });
 
 router.get('/access_denied', (req, res) => {
-  res.render('index', {title: 'Express', content: 'User access denied'});
+  res.render('index', {title: 'Our Playlist'});
 });
 
 router.get('/refresh_tokens', (req, res) => {
@@ -237,7 +237,7 @@ router.get('/refresh_tokens', (req, res) => {
       res.clearCookie('access_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
       console.log(e);
-      res.render('index', {title: 'Express', content: "Error. Tell Bruce about this." });
+      res.render('index', {title: 'Our Playlist', content: "Error. Tell Bruce about this." });
     } finally {
       res.redirect('/members/check_member')
     }
@@ -265,7 +265,7 @@ router.get('/check_member', (req, res, next) => {
         res.clearCookie('access_token', { httpOnly: true });
         res.clearCookie('groupId', { httpOnly: true });
         res.clearCookie('member_id', { httpOnly: true});
-        res.render('index', {title: 'Express', content: 'User is already a part of the group'});
+        res.render('index', {title: 'Our Playlist'});
         // what if they want to update their taste
       } else {
         // add the userInfo
@@ -289,7 +289,7 @@ router.get('/check_member', (req, res, next) => {
       res.clearCookie('access_token', { httpOnly: true });
       res.clearCookie('groupId', { httpOnly: true });
       console.log(e);
-      res.render('index', {title: 'Express', content: "Error. Please tell Bruce about this."});
+      res.render('index', {title: 'Our Playlist', content: "Error. Please tell Bruce about this."});
     } finally {
 
     }

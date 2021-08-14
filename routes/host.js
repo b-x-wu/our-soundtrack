@@ -7,7 +7,7 @@ const [serialize, addQueryParams, getFields, encrypt, decrypt] = require("../uti
 const crypto = require('crypto'); 
 
 router.get('/', (req, res, next) => {
-  res.render('index', { title: 'Express', content: process.env.CLIENT_ID });
+  res.render('index', { title: 'Our Playlist', content: process.env.CLIENT_ID });
 });
 
 router.get('/auth', (req, res) => {
@@ -16,7 +16,7 @@ router.get('/auth', (req, res) => {
   const params = {
     client_id: process.env.CLIENT_ID,
     response_type: 'code',
-    redirect_uri: 'https://our-soundtrack.herokuapp.com/host/get_tokens',
+    redirect_uri: process.env.URL_PREFIX + '/host/get_tokens',
     scope: 'user-top-read playlist-modify-public'
   }
 
@@ -28,14 +28,13 @@ router.get('/auth', (req, res) => {
 
 router.get('/get_tokens', (req, res, next) => {
   // requests access tokens
-  // TODO: what happens if the user denies access?
 
   if (req.query['error']) { res.redirect('/host/access_denied'); }
 
   const body = {
     grant_type: 'authorization_code',
     code: req.query['code'],
-    redirect_uri: 'https://our-soundtrack.herokuapp.com/host/get_tokens',
+    redirect_uri: process.env.URL_PREFIX + '/host/get_tokens',
     client_id: process.env.CLIENT_ID,
     client_secret: process.env.CLIENT_SECRET
   };
@@ -60,8 +59,8 @@ router.get('/get_tokens', (req, res, next) => {
 
     } catch (e) {
 
-      console.log(e.response.body);
-      res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
+      console.log(e);
+      res.render('index', { title: 'Our Playlist', content: "Error. Please tell Bruce about this." });
 
     }
 
@@ -70,10 +69,13 @@ router.get('/get_tokens', (req, res, next) => {
 });
 
 router.get('/access_denied', (req, res) => {
-  res.render('index', {title: 'Express', content: 'User access denied.'});
+  // Page for when user denies access to the app
+
+  res.render('index', {title: 'Our Playlist'});
 });
 
 router.get('/add_host', (req, res) => {
+  // Creates the group playlist
 
   const content = req.cookies;
   res.clearCookie('accessToken', { httpOnly: true });
@@ -83,7 +85,7 @@ router.get('/add_host', (req, res) => {
   const ID = oID.toHexString();
 
   const topTrackQuery = {
-      time_range: 'long_term', // add long, medium, and short term
+      time_range: 'long_term', // TODO: add long, medium, and short term
       limit: 50,
   };
 
@@ -91,10 +93,11 @@ router.get('/add_host', (req, res) => {
 
     try {
 
-      const hostInfo = await (async () => {
+      const hostInfo = await (async () => { 
         
         try {
 
+          // Get user info
           const userInfo = await got('https://api.spotify.com/v1/me', {
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
@@ -130,7 +133,6 @@ router.get('/add_host', (req, res) => {
           const createPlaylistObj = JSON.parse(createPlaylist.body);
 
           // Add songs to playlist
-
           const addSongsBody = {
             uris: topTrackItems.map(x => x['uri']).slice(0, 50), // TODO: make playlist size flexible
           };
@@ -144,6 +146,7 @@ router.get('/add_host', (req, res) => {
             body: JSON.stringify(addSongsBody)
           });
 
+          // Returns object to put in db
           return {host: {
               userInfo: getFields(userInfoObj, ['id', 'uri', 'display_name']), 
               topTracks: topTrackItems.map(x => x['uri']),
@@ -167,22 +170,21 @@ router.get('/add_host', (req, res) => {
         } catch (e) {
 
           console.log(e);
-          res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
+          res.render('index', { title: 'Our Playlist', content: "Error. Please tell Bruce about this." });
           return;
 
         }
 
       })();
 
-      // console.log(hostInfo);
       await collection.insertOne(hostInfo);
 
     } catch (e) {
       console.log(e);
-      res.render('index', { title: 'Express', content: "Error. Please tell Bruce about this." });
+      res.render('index', { title: 'Our Playlist', content: "Error. Please tell Bruce about this." });
     } finally {
       // await client.close();
-      res.render('index', { title: 'Express', content: "Use this link to add more users: https://our-soundtrack.herokuapp.com/members/add_member/" + ID });
+      res.render('index', { title: 'Our Playlist', content: `Use this link to add more users: ${process.env.URL_PREFIX}/members/add_member/ ${ID}` });
     }
   
   })(req.collection);
