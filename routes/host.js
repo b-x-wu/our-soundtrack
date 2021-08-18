@@ -184,7 +184,7 @@ router.get('/add_host', (req, res) => {
       res.render('index', { title: 'Our Playlist', content: "Error. Please tell Bruce about this." });
     } finally {
       // await client.close();
-      res.render('index', { title: 'Our Playlist', content: `Use this link to add more users: ${process.env.URL_PREFIX}/members/add_member/ ${ID}` });
+      res.render('index', { title: 'Our Playlist', content: `Use this link to add more users: ${process.env.URL_PREFIX}/members/add_member/${ID}` });
     }
   
   })(req.collection);
